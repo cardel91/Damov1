@@ -1,12 +1,19 @@
 package ni.edu.uca.damov1;
 
 import android.content.Context;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
+import android.util.SparseBooleanArray;
+import android.view.ActionMode;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AbsListView;
 import android.widget.Button;
 import android.widget.ListView;
 
@@ -36,6 +43,7 @@ public class PersonaFragment extends Fragment implements View.OnClickListener{
 
     private List<Persona> personas;
     private PersonaAdapter adapter;
+    private ListView listView;
 
     private OnFragmentInteractionListener mListener;
 
@@ -77,13 +85,66 @@ public class PersonaFragment extends Fragment implements View.OnClickListener{
 
         View view = inflater.inflate(R.layout.fragment_persona, container, false);
 
-        ListView listView = (ListView) view.findViewById(R.id.listPersonas);
+        listView = (ListView) view.findViewById(R.id.listPersonas);
         Button button = (Button) view.findViewById(R.id.boton1);
         button.setOnClickListener(this);
 
         personas = Persona.listAll(Persona.class);
         adapter = new PersonaAdapter(getActivity(),0,personas);
         listView.setAdapter(adapter);
+        listView.setChoiceMode(AbsListView.CHOICE_MODE_MULTIPLE_MODAL);
+        listView.setMultiChoiceModeListener(new AbsListView.MultiChoiceModeListener() {
+
+            private int nr = 0;
+            @Override
+            public void onItemCheckedStateChanged(ActionMode mode, int position, long id, boolean checked) {
+                if(checked)
+                    nr++;
+                else
+                    nr--;
+                adapter.toggleSelection(position);
+            }
+
+            @Override
+            public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+                MenuInflater menuInflater = getActivity().getMenuInflater();
+                menuInflater.inflate(R.menu.action_menu, menu);
+                return true;
+            }
+
+            @Override
+            public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+                return false;
+            }
+
+            @Override
+            public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+                switch (item.getItemId()){
+                    case R.id.delete:
+                        SparseBooleanArray array = adapter.getSelectedIds();
+                        for(int i = array.size()-1;i>=0;i--) {
+                            if (array.valueAt(i)) {
+                                Persona persona = adapter.getItem(array.keyAt(i));
+                                persona.delete();
+                                adapter.remove(persona);
+                            }
+                        }
+                        adapter.notifyDataSetChanged();
+                        mode.finish();
+                        return true;
+                    default:
+                        return false;
+                }
+//                return false;
+            }
+
+            @Override
+            public void onDestroyActionMode(ActionMode mode) {
+                adapter.notifyDataSetChanged();
+                adapter.removeSelection();
+                mode.finish();
+            }
+        });
 
         return view;
     }
@@ -114,7 +175,8 @@ public class PersonaFragment extends Fragment implements View.OnClickListener{
 
     @Override
     public void onClick(View v) {
-
+        Intent intent = new Intent(getActivity(), NuevaPersonaActivity.class);
+        startActivity(intent);
     }
 
     /**
@@ -130,5 +192,14 @@ public class PersonaFragment extends Fragment implements View.OnClickListener{
     public interface OnFragmentInteractionListener {
         // TODO: Update argument type and name
         void onFragmentInteraction(Uri uri);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        personas = Persona.listAll(Persona.class);
+        adapter = new PersonaAdapter(getActivity(),0,personas);
+        listView.setAdapter(adapter);
+        adapter.notifyDataSetChanged();
     }
 }
